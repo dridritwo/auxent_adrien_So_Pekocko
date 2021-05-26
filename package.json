@@ -1,0 +1,26 @@
+{
+  "name": "auxent_adrien_so_pekocko",
+  "version": "1.0.0",
+  "description": "projet 6 openclassrooms",
+  "main": "app.js",
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/dridritwo/auxent_adrien_So_Pekocko.git"
+  },
+  "author": "adrien auxent",
+  "license": "ISC",
+  "bugs": {
+    "url": "https://github.com/dridritwo/auxent_adrien_So_Pekocko/issues"
+  },
+  "homepage": "https://github.com/dridritwo/auxent_adrien_So_Pekocko#readme",
+  "dependencies": {
+    "bcrypt": "^5.0.1",
+    "express": "^4.17.1",
+    "mongoose": "^5.12.11",
+    "mongoose-validator": "^2.1.0",
+    "multer": "^1.4.2"
+  }
+}
