@@ -29,7 +29,7 @@ exports.logIn = (req, res, next) => {
           if (!valid) {
             return res.status(401).json({ error: "Mot de passe incorrect" });
           }
-          console.log(`User ${req.body.email} logged in.`)
+          console.log(`User ${user.email} logged in with id ${user._id}.`)
           res.status(200).json({
             userId: user._id,
             token: jwt.sign({ userId: user._id }, "RANDOM_TOKEN_SECRET", {
