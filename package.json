@@ -2,7 +2,7 @@
   "name": "auxent_adrien_so_pekocko",
   "version": "1.0.0",
   "description": "projet 6 openclassrooms",
-  "main": "app.js",
+  "main": "server.js",
   "scripts": {
     "start": "node server"
   },
