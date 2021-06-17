@@ -9,7 +9,7 @@ const path = require('path');
 const app = express();
 
 mongoose
-  .connect(process.env.MONGO_URL, {
+  .connect(process.env.MONGO_URL_ADMIN, {
     useCreateIndex: true,
     useNewUrlParser: true,
     useUnifiedTopology: true,

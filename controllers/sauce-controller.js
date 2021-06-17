@@ -3,7 +3,6 @@ const fs = require("fs");
 
 exports.createSauce = (req, res, next) => {
   const sauceObject = JSON.parse(req.body.sauce);
-  console.log("sauce created : ", sauceObject)
   delete sauceObject._id;
   const sauce = new Sauce({
     ...sauceObject,
@@ -29,7 +28,6 @@ exports.getOneSauce = (req, res, next) => {
 
 
 exports.modifySauce = (req, res, next) => {
-  console.log("modify req body", req.body)
   Sauce.findOne({ _id: req.params.id })
   .then((sauce) => {
     const filename = sauce.imageUrl.split("/images/")[1];
