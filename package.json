@@ -4,7 +4,7 @@
   "description": "projet 6 openclassrooms",
   "main": "app.js",
   "scripts": {
-    "start": "nodemon server"
+    "start": "node server"
   },
   "repository": {
     "type": "git",
