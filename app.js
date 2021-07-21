@@ -1,5 +1,4 @@
 const express = require("express");
-const bodyParser = require("body-parser");
 require("dotenv").config();
 const mongoose = require("mongoose");
 const sauceRoutes = require('./routes/sauce-route');
@@ -30,7 +29,8 @@ app.use((req, res, next) => {
   next();
 });
 
-app.use(bodyParser.json());
+
+app.use(express.json()); 
 
 app.use('/images', express.static(path.join(__dirname, 'images')));
 app.use('/api/sauces', sauceRoutes);
