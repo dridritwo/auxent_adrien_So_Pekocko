@@ -1,15 +1,12 @@
 const Sauce = require("../models/Sauce");
 const fs = require("fs");
-var https = require("follow-redirects").https;
-const path = require("path");
-const agent = require("superagent");
-var request = require("request");
+const request = require("request");
 const imageToBase64 = require("image-to-base64");
 
 exports.createSauce = (req, res, next) => {
   imageToBase64(req.file.path)
     .then((image64) => {
-      var options = {
+      let options = {
         method: "POST",
         url: "https://api.imgur.com/3/image",
         headers: {
@@ -55,7 +52,7 @@ exports.modifySauce = (req, res, next) => {
     .then((sauce) => {
       // delete imgur image
       if (req.file) {
-      var options = {
+      let options = {
         method: "DELETE",
         url: `https://api.imgur.com/3/image/${sauce.imageDeleteHash}`,
         headers: {
@@ -70,7 +67,7 @@ exports.modifySauce = (req, res, next) => {
           .then((image64) => {
             // unlink image
             fs.unlink(req.file.path, () => {});
-            var options = {
+            let options = {
               method: "POST",
               url: "https://api.imgur.com/3/image",
               headers: {
@@ -124,7 +121,7 @@ exports.modifySauce = (req, res, next) => {
 exports.deleteSauce = (req, res, next) => {
   Sauce.findOne({ _id: req.params.id })
     .then((sauce) => {
-      var options = {
+      let options = {
         method: "DELETE",
         url: `https://api.imgur.com/3/image/${sauce.imageDeleteHash}`,
         headers: {
