@@ -3,71 +3,45 @@ const fs = require("fs");
 var https = require("follow-redirects").https;
 const path = require("path");
 const agent = require("superagent");
+var request = require("request");
 const imageToBase64 = require("image-to-base64");
 
 exports.createSauce = (req, res, next) => {
   imageToBase64(req.file.path)
-    .then((response) => {
-      console.log(response); // "cGF0aC90by9maWxlLmpwZw=="
-
+    .then((image64) => {
       var options = {
         method: "POST",
-        hostname: "api.imgur.com",
-        path: "/3/image",
+        url: "https://api.imgur.com/3/image",
         headers: {
           Authorization: `Client-ID ${process.env.IMGUR_CLIENT_ID}`,
         },
-        maxRedirects: 20,
+        formData: {
+          image: image64,
+        },
       };
-
-      var req = https.request(options, function (res) {
-        var chunks = [];
-
-        res.on("data", function (chunk) {
-          chunks.push(chunk);
+      request(options, function (error, responseImgur) {
+        if (error) throw new Error(error);
+        const sauceObject = JSON.parse(req.body.sauce);
+        delete sauceObject._id;
+        const sauce = new Sauce({
+          ...sauceObject,
+          imageUrl: JSON.parse(responseImgur.body).data.link,
+          imageDeleteHash: JSON.parse(responseImgur.body).data.deletehash,
+          usersLiked: [],
+          usersDisLiked: [],
+          likes: 0,
+          dislikes: 0,
         });
-
-        res.on("end", function (chunk) {
-          var body = Buffer.concat(chunks);
-          console.log(body.toString());
-        });
-
-        res.on("error", function (error) {
-          console.error(error);
-        });
+        sauce
+          .save()
+          .then(() => {
+            fs.unlink(req.file.path, () => {});
+            res.status(201).json({ message: "Objet enregistré !" });
+          })
+          .catch((error) => res.status(400).json({ error }));
       });
-
-      var postData =
-        '------WebKitFormBoundary7MA4YWxkTrZu0gW\r\nContent-Disposition: form-data; name="image"\r\n\r\nR0lGODlhAQABAIAAAAAAAP///yH5BAEAAAAALAAAAAABAAEAAAIBRAA7\r\n------WebKitFormBoundary7MA4YWxkTrZu0gW--';
-
-      req.setHeader(
-        "content-type",
-        "multipart/form-data; boundary=----WebKitFormBoundary7MA4YWxkTrZu0gW"
-      );
-
-      req.write(postData);
-
-      req.end();
     })
-    .catch((error) => {
-      console.log(error); // Logs an error if there was one
-    });
-  const sauceObject = JSON.parse(req.body.sauce);
-  delete sauceObject._id;
-  const sauce = new Sauce({
-    ...sauceObject,
-    imageUrl: `${req.protocol}://${req.get("host")}/images/${
-      req.file.filename
-    }`,
-    usersLiked: [],
-    usersDisLiked: [],
-    likes: 0,
-    dislikes: 0,
-  });
-  sauce
-    .save()
-    .then(() => res.status(201).json({ message: "Objet enregistré !" }))
-    .catch((error) => res.status(400).json({ error }));
+    .catch((error) => res.status(500).json({ error }));
 };
 
 exports.getOneSauce = (req, res, next) => {
@@ -79,23 +53,70 @@ exports.getOneSauce = (req, res, next) => {
 exports.modifySauce = (req, res, next) => {
   Sauce.findOne({ _id: req.params.id })
     .then((sauce) => {
-      const filename = sauce.imageUrl.split("/images/")[1];
-      fs.unlink(`images/${filename}`, () => {
-        const sauceObject = req.file
-          ? {
-              ...JSON.parse(req.body.sauce),
-              imageUrl: `${req.protocol}://${req.get("host")}/images/${
-                req.file.filename
-              }`,
-            }
-          : { ...req.body };
-        Sauce.updateOne(
-          { _id: req.params.id },
-          { ...sauceObject, _id: req.params.id }
+      // delete imgur image
+      if (req.file) {
+      var options = {
+        method: "DELETE",
+        url: `https://api.imgur.com/3/image/${sauce.imageDeleteHash}`,
+        headers: {
+          Authorization: `Client-ID ${process.env.IMGUR_CLIENT_ID}`,
+        },
+        formData: {},
+      };
+      request(options, function (error, response) {
+        if (error) throw new Error(error);
+        // upload imgur image if there is an image to change
+        imageToBase64(req.file.path)
+          .then((image64) => {
+            // unlink image
+            fs.unlink(req.file.path, () => {});
+            var options = {
+              method: "POST",
+              url: "https://api.imgur.com/3/image",
+              headers: {
+                Authorization: `Client-ID ${process.env.IMGUR_CLIENT_ID}`,
+              },
+              formData: {
+                image: image64,
+              },
+            };
+            request(options, function (error, responseImgur) {
+              if (error) throw new Error(error);
+              // mofify URL in MongoDB
+
+              // modifier
+              const sauceObject = req.file
+                ? {
+                    ...JSON.parse(req.body.sauce),
+                    imageUrl: JSON.parse(responseImgur.body).data.link,
+                    imageDeleteHash: JSON.parse(responseImgur.body).data
+                      .deletehash,
+                  }
+                : { ...req.body };
+              Sauce.updateOne(
+                { _id: req.params.id },
+                { ...sauceObject, _id: req.params.id }
+              )
+                .then(() =>
+                  res.status(200).json({ message: "Objet modifié !" })
+                )
+                .catch((error) => res.status(400).json({ error }));
+            });
+          })
+          .catch((error) => res.status(500).json({ error }));
+        });
+      } else  {
+        // modifier
+        const sauceObject = { ...req.body };
+      Sauce.updateOne(
+        { _id: req.params.id },
+        { ...sauceObject, _id: req.params.id }
+      )
+        .then(() =>
+          res.status(200).json({ message: "Objet modifié !" })
         )
-          .then(() => res.status(200).json({ message: "Objet modifié !" }))
-          .catch((error) => res.status(400).json({ error }));
-      });
+        .catch((error) => res.status(400).json({ error }));
+      }
     })
     .catch((error) => res.status(500).json({ error }));
 };
@@ -103,8 +124,16 @@ exports.modifySauce = (req, res, next) => {
 exports.deleteSauce = (req, res, next) => {
   Sauce.findOne({ _id: req.params.id })
     .then((sauce) => {
-      const filename = sauce.imageUrl.split("/images/")[1];
-      fs.unlink(`images/${filename}`, () => {
+      var options = {
+        method: "DELETE",
+        url: `https://api.imgur.com/3/image/${sauce.imageDeleteHash}`,
+        headers: {
+          Authorization: `Client-ID ${process.env.IMGUR_CLIENT_ID}`,
+        },
+        formData: {},
+      };
+      request(options, function (error, response) {
+        if (error) throw new Error(error);
         Sauce.deleteOne({ _id: req.params.id })
           .then(() => res.status(200).json({ message: "Objet supprimé !" }))
           .catch((error) => res.status(400).json({ error }));
