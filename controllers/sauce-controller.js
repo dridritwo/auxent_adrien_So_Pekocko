@@ -2,6 +2,7 @@ const Sauce = require("../models/Sauce");
 const fs = require("fs");
 const request = require("request");
 const imageToBase64 = require("image-to-base64");
+const jwt = require("jsonwebtoken");
 
 exports.createSauce = (req, res, next) => {
   imageToBase64(req.file.path)
@@ -48,79 +49,110 @@ exports.getOneSauce = (req, res, next) => {
 };
 
 exports.modifySauce = (req, res, next) => {
+  const token = req.headers.authorization.split(" ")[1];
+  const decodedToken = jwt.verify(token, process.env.JWT_TOKEN_SECRET);
+  const userId = decodedToken.userId;
+
   Sauce.findOne({ _id: req.params.id })
     .then((sauce) => {
+      // check if user is sauce owner
+      if (userId !== sauce.userId) {
+        res.status(401).json({ error: "Unauthorized" });
+      }
       // delete imgur image
       if (req.file) {
-      let options = {
-        method: "DELETE",
-        url: `https://api.imgur.com/3/image/${sauce.imageDeleteHash}`,
-        headers: {
-          Authorization: `Client-ID ${process.env.IMGUR_CLIENT_ID}`,
-        },
-        formData: {},
-      };
-      request(options, function (error, response) {
-        if (error) throw new Error(error);
-        // upload imgur image if there is an image to change
-        imageToBase64(req.file.path)
-          .then((image64) => {
-            // unlink image
-            fs.unlink(req.file.path, () => {});
-            let options = {
-              method: "POST",
-              url: "https://api.imgur.com/3/image",
-              headers: {
-                Authorization: `Client-ID ${process.env.IMGUR_CLIENT_ID}`,
-              },
-              formData: {
-                image: image64,
-              },
-            };
-            request(options, function (error, responseImgur) {
-              if (error) throw new Error(error);
-              // mofify URL in MongoDB
+        let options = {
+          method: "DELETE",
+          url: `https://api.imgur.com/3/image/${sauce.imageDeleteHash}`,
+          headers: {
+            Authorization: `Client-ID ${process.env.IMGUR_CLIENT_ID}`,
+          },
+          formData: {},
+        };
+        request(options, function (error, response) {
+          if (error) throw new Error(error);
+          // upload imgur image if there is an image to change
+          imageToBase64(req.file.path)
+            .then((image64) => {
+              // unlink image
+              fs.unlink(req.file.path, () => {});
+              let options = {
+                method: "POST",
+                url: "https://api.imgur.com/3/image",
+                headers: {
+                  Authorization: `Client-ID ${process.env.IMGUR_CLIENT_ID}`,
+                },
+                formData: {
+                  image: image64,
+                },
+              };
+              request(options, function (error, responseImgur) {
+                if (error) throw new Error(error);
+                // mofify URL in MongoDB
 
-              // modifier
-              const sauceObject = req.file
-                ? {
-                    ...JSON.parse(req.body.sauce),
+                // modifier
+                const modifiedObject = {
+                  ...JSON.parse(req.body.sauce),
+                };
+
+                let sauceObject = {
+                  name: modifiedObject.name,
+                  manufacturer: modifiedObject.manufacturer,
+                  description: modifiedObject.description,
+                  mainPepper: modifiedObject.mainPepper,
+                  heat: modifiedObject.heat,
+                  userId: modifiedObject.userId,
+                };
+                if (req.file) {
+                  sauceObject = {
+                    ...sauceObject,
                     imageUrl: JSON.parse(responseImgur.body).data.link,
                     imageDeleteHash: JSON.parse(responseImgur.body).data
                       .deletehash,
-                  }
-                : { ...req.body };
-              Sauce.updateOne(
-                { _id: req.params.id },
-                { ...sauceObject, _id: req.params.id }
-              )
-                .then(() =>
-                  res.status(200).json({ message: "Objet modifié !" })
+                  };
+                }
+                Sauce.updateOne(
+                  { _id: req.params.id },
+                  { ...sauceObject, _id: req.params.id }
                 )
-                .catch((error) => res.status(400).json({ error }));
-            });
-          })
-          .catch((error) => res.status(500).json({ error }));
+                  .then(() =>
+                    res.status(200).json({ message: "Objet modifié !" })
+                  )
+                  .catch((error) => res.status(400).json({ error }));
+              });
+            })
+            .catch((error) => res.status(500).json({ error }));
         });
-      } else  {
+      } else {
         // modifier
-        const sauceObject = { ...req.body };
-      Sauce.updateOne(
-        { _id: req.params.id },
-        { ...sauceObject, _id: req.params.id }
-      )
-        .then(() =>
-          res.status(200).json({ message: "Objet modifié !" })
+        Sauce.updateOne(
+          { _id: req.params.id },
+          {
+            name: req.body.name,
+            manufacturer: req.body.manufacturer,
+            description: req.body.description,
+            mainPepper: req.body.mainPepper,
+            heat: req.body.heat,
+            userId: req.body.userId,
+            _id: req.params.id,
+          }
         )
-        .catch((error) => res.status(400).json({ error }));
+          .then(() => res.status(200).json({ message: "Objet modifié !" }))
+          .catch((error) => res.status(400).json({ error }));
       }
     })
     .catch((error) => res.status(500).json({ error }));
 };
 
 exports.deleteSauce = (req, res, next) => {
+  const token = req.headers.authorization.split(" ")[1];
+  const decodedToken = jwt.verify(token, process.env.JWT_TOKEN_SECRET);
+  const userId = decodedToken.userId;
   Sauce.findOne({ _id: req.params.id })
     .then((sauce) => {
+      if (userId !== sauce.userId) {
+        res.status(401).json({ error: "Unauthorized" });
+      }
       let options = {
         method: "DELETE",
         url: `https://api.imgur.com/3/image/${sauce.imageDeleteHash}`,

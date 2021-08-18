@@ -1,3 +1,6 @@
+images/
+!images/index.html
+
 # Logs
 logs
 *.log
