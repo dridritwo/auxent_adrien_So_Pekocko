@@ -1,5 +1,6 @@
 const Sauce = require("../models/Sauce");
 const fs = require("fs");
+const jwt = require('jsonwebtoken');
 
 exports.createSauce = (req, res, next) => {
   const sauceObject = JSON.parse(req.body.sauce);
@@ -28,13 +29,26 @@ exports.getOneSauce = (req, res, next) => {
 
 
 exports.modifySauce = (req, res, next) => {
+  const token = req.headers.authorization.split(' ')[1];
+  const decodedToken = jwt.verify(token, process.env.JWT_TOKEN_SECRET);
+  const userId = decodedToken.userId;
+  
   Sauce.findOne({ _id: req.params.id })
   .then((sauce) => {
+    if (userId !== sauce.userId) {
+      res.status(401).json({ error : "Unauthorized"})
+    }
     const filename = sauce.imageUrl.split("/images/")[1];
     fs.unlink(`images/${filename}`, () => {
+      
       const sauceObject = req.file
       ? {
-        ...JSON.parse(req.body.sauce),
+        name: req.body.name,
+        manufacturer: req.body.manufacturer,
+        description: req.body.description,
+        mainPepper: req.body.mainPepper,
+        heat: req.body.heat,
+        userId: req.body.user,
         imageUrl: `${req.protocol}://${req.get("host")}/images/${
           req.file.filename
         }`,
@@ -52,8 +66,14 @@ exports.modifySauce = (req, res, next) => {
   };
   
   exports.deleteSauce = (req, res, next) => {
+    const token = req.headers.authorization.split(' ')[1];
+    const decodedToken = jwt.verify(token, process.env.JWT_TOKEN_SECRET);
+    const userId = decodedToken.userId;
     Sauce.findOne({ _id: req.params.id })
     .then((sauce) => {
+      if (userId !== sauce.userId) {
+        res.status(401).json({ error : "Unauthorized"})
+      }
       const filename = sauce.imageUrl.split("/images/")[1];
       fs.unlink(`images/${filename}`, () => {
         Sauce.deleteOne({ _id: req.params.id })
